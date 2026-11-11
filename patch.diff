@@ -1,0 +1,52 @@
+--- vulnerable_app.py
++++ secure_app.py
+@@ -1,13 +1,13 @@
+ """
+-Учебное веб-приложение с двумя намеренно созданными уязвимостями:
+-1. SQL Injection в форме входа.
+-2. Reflected XSS в поиске.
+-
++Исправленная версия учебного веб-приложения.
++SQL Injection устранена параметризованным SQL-запросом.
++Reflected XSS устранена экранированием HTML.
+
+ """
+ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+ from urllib.parse import urlparse, parse_qs
+ import sqlite3
++from html import escape
+ 
+ HOST = "127.0.0.1"
+ PORT = 8000
+@@ -81,9 +81,9 @@
+         if parsed.path == "/search":
+             query = parse_qs(parsed.query).get("q", [""])[0]
+ 
+-            # УЯЗВИМОСТЬ №2: пользовательский ввод вставляется в HTML
+-            # без экранирования. Это демонстрация reflected XSS.
+-            content = f"<h2>Результаты поиска</h2><p>Вы искали: {query}</p>"
++            # ИСПРАВЛЕНИЕ XSS: экранируем специальные HTML-символы.
++            safe_query = escape(query)
++            content = f"<h2>Результаты поиска</h2><p>Вы искали: {safe_query}</p>"
+             self.send_html(page(content))
+             return
+ 
+@@ -100,15 +100,12 @@
+         username = values.get("username", [""])[0]
+         password = values.get("password", [""])[0]
+ 
+-        # УЯЗВИМОСТЬ №1: данные пользователя напрямую склеиваются с SQL.
+-        sql = (
+-            "SELECT username FROM users "
+-            f"WHERE username = '{username}' AND password = '{password}'"
+-        )
++        # ИСПРАВЛЕНИЕ SQL Injection: используем параметры запроса.
++        sql = "SELECT username FROM users WHERE username = ? AND password = ?"
+ 
+         try:
+             with sqlite3.connect(DB_NAME) as connection:
+-                result = connection.execute(sql).fetchone()
++                result = connection.execute(sql, (username, password)).fetchone()
+         except sqlite3.Error:
+             result = None
+ 
